@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the game board */
+        :root {
+            --color-x: #1E88E5; /* Blue */
+            --color-o: #E53935; /* Red */
+            --bg-dark: #0a0909;
+            --bg-light: #080808;
+            --grid-color: #4a5568;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--bg-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 400px; /* Max size for the board area */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+            background-color: #c4f778; /* Slightly lighter dark background */
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(243, 83, 83, 0.5);
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1; /* Ensures the board is always square */
+            gap: 8px;
+            margin: 20px 0;
+            user-select: none;
+        }
+
+        .cell {
+            background-color: #f9ad92;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20vw; /* Responsive font size */
+            line-height: 1;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            font-weight: 700;
+        }
+
+        /* Adjust font size for smaller screens to prevent overflow */
+        @media (max-width: 640px) {
+            .cell {
+                font-size: 25vw; /* Adjust for mobile view */
+            }
+        }
+
+        @media (min-width: 400px) {
+            .cell {
+                font-size: 6rem;
+            }
+        }
+
+
+        .cell:hover {
+            background-color: #3b536b;
+        }
+
+        .cell.x {
+            color: var(--color-x);
+            /* Optional: Add a subtle text shadow for pop */
+            text-shadow: 0 0 10px rgba(30, 136, 229, 0.5);
+        }
+
+        .cell.o {
+            color: var(--color-o);
+            text-shadow: 0 0 10px rgba(229, 57, 53, 0.5);
+        }
+
+        .cell.winner {
+            background-color: #4CAF50 !important; /* Green highlight for winner */
+            color: #fff;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 4px 15px rgba(76, 175, 80, 0.5); }
+            100% { transform: scale(1.05); box-shadow: 0 4px 25px rgba(76, 175, 80, 0.8); }
+        }
+
+        #status-message {
+            font-size: 1.5rem;
+            font-weight: 700;
+            min-height: 2rem; /* Ensure stability */
+            margin-bottom: 1rem;
+        }
+
+        .status-x { color: var(--color-x); }
+        .status-o { color: var(--color-o); }
+
+        .restart-btn {
+            padding: 12px 24px;
+            background-color: #eb112e; /* Amber/Yellow for action */
+            color: var(--bg-dark);
+            font-weight: 700;
+            border-radius: 9999px;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .restart-btn:hover {
+            background-color: #FFD740;
+            transform: translateY(-2px);
+        }
+
+        .restart-btn:active {
+            transform: translateY(0);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1 class="text-3xl font-bold mb-4">Tic-Tac-Toe</h1>
+
+        <!-- Status Message Area -->
+        <div id="status-message"></div>
+
+        <!-- Game Board -->
+        <div class="board" id="board">
+            <!-- Cells will be dynamically generated here -->
+        </div>
+
+        <!-- Restart Button -->
+        <button id="restart-btn" class="restart-btn" onclick="restartGame()">Restart Game</button>
+    </div>
+
+    <script>
+        // --- Game State Variables ---
+        let board = Array(9).fill(null); // Represents the 9 squares of the board
+        let currentPlayer = 'X';
+        let gameActive = true;
+        const WINNING_COMBOS = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+            [0, 4, 8], [2, 4, 6]             // Diagonals
+        ];
+
+        // --- DOM Elements ---
+        const boardElement = document.getElementById('board');
+        const statusElement = document.getElementById('status-message');
+
+        /**
+         * Initializes the game by creating the 9 clickable cells.
+         */
+        function initializeBoard() {
+            boardElement.innerHTML = ''; // Clear previous board
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell', 'flex', 'items-center', 'justify-center');
+                cell.setAttribute('data-index', i);
+                cell.addEventListener('click', () => handleCellClick(i));
+                boardElement.appendChild(cell);
+            }
+            updateStatus();
+        }
+
+        /**
+         * Handles a click on a cell, updating the board and checking for game end.
+         * @param {number} index - The index of the clicked cell (0-8).
+         */
+        function handleCellClick(index) {
+            if (!gameActive || board[index] !== null) {
+                return; // Ignore if game is over or cell is already filled
+            }
+
+            // 1. Update state
+            board[index] = currentPlayer;
+
+            // 2. Update visual cell
+            const cellElement = boardElement.children[index];
+            cellElement.textContent = currentPlayer;
+            cellElement.classList.add(currentPlayer.toLowerCase());
+
+            // 3. Check for win or draw
+            if (checkWin()) {
+                gameActive = false;
+                statusElement.innerHTML = `<span class="status-${currentPlayer.toLowerCase()}">${currentPlayer} Wins!</span> 🥳`;
+                highlightWinner(checkWin());
+                return;
+            }
+
+            if (checkDraw()) {
+                gameActive = false;
+                statusElement.textContent = "It's a Draw! 🤝";
+                return;
+            }
+
+            // 4. Switch player
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            updateStatus();
+        }
+
+        /**
+         * Checks if the current board state contains a winning combination.
+         * @returns {number[] | boolean} The winning combo array if won, otherwise false.
+         */
+        function checkWin() {
+            for (const combo of WINNING_COMBOS) {
+                const [a, b, c] = combo;
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    return combo; // Return the winning combination
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Checks if the game is a draw (all cells filled, no winner).
+         * @returns {boolean} True if the game is a draw.
+         */
+        function checkDraw() {
+            return board.every(cell => cell !== null);
+        }
+
+        /**
+         * Highlights the cells of the winning combination.
+         * @param {number[]} combo - The winning indices.
+         */
+        function highlightWinner(combo) {
+            combo.forEach(index => {
+                boardElement.children[index].classList.add('winner');
+            });
+        }
+
+        /**
+         * Updates the status message to show the current player.
+         */
+        function updateStatus() {
+            statusElement.innerHTML = `Current Player: <span class="status-${currentPlayer.toLowerCase()}">${currentPlayer}</span>`;
+        }
+
+        /**
+         * Resets the game to its initial state.
+         */
+        function restartGame() {
+            board.fill(null);
+            currentPlayer = 'X';
+            gameActive = true;
+
+            // Remove content and winning classes from all cells
+            const cells = boardElement.children;
+            for (let i = 0; i < cells.length; i++) {
+                cells[i].textContent = '';
+                cells[i].classList.remove('x', 'o', 'winner');
+            }
+
+            updateStatus();
+        }
+
+        // Start the game when the window loads
+        window.onload = initializeBoard;
+    </script>
+
+</body>
+</html>
